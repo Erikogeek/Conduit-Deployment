@@ -14,7 +14,7 @@ if not User.objects.filter(is_superuser=True).exists():
     User.objects.create_superuser(
         'admin', 
         'admin@example.com',
-        os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'securepass')
+        os.environ.get('DJANGO_SUPERUSER_PASSWORD')
         )
         "
 
