@@ -1,0 +1,57 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Deploy Conduit Application
+
+on:
+  push:
+    branches:
+      - c-deployment
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Backend
+          push: true
+          tags: ${{ vars.BACKEND_IMAGE }}:${{ vars.IMAGE_TAG }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Frontend
+          push: true
+          tags: ${{ vars.FRONTEND_IMAGE }}:${{ vars.IMAGE_TAG }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/Conduit-Deployment
+            docker compose pull
+            docker compose up -d
