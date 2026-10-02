@@ -52,23 +52,28 @@ jobs:
     needs: build
 
     steps:
+      - name: Check SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "SSH_PRIVATE_KEY is EMPTY"
+            exit 1
+          else
+            echo "SSH_PRIVATE_KEY is present"
+            echo "First line:"
+            echo "$SSH_PRIVATE_KEY" | head -n 1
+            echo "Last line:"
+            echo "$SSH_PRIVATE_KEY" | tail -n 1
+          fi
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
 
-          key: ----BEGIN OPENSSH PRIVATE KEY-----
-            b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-            QyNTUxOQAAACAxNWNhH+N7I8Uiq3xijp61vFlbWW7l8HivR4/mB89aSgAAAKiJlYtsiZWL
-            bAAAAAtzc2gtZWQyNTUxOQAAACAxNWNhH+N7I8Uiq3xijp61vFlbWW7l8HivR4/mB89aSg
-            AAAEBESeg/9kulc/PLdTO6vJSk+ab/Ev5uEQie5JbYawkhPjE1Y2Ef43sjxSKrfGKOnrW8
-            WVtZbuXweK9Hj+YHz1pKAAAAIWdpdGh1Yi1hY3Rpb25zLWNvbmR1aXQtZGVwbG95bWVudA
-            ECAwQ=
-            -----END OPENSSH PRIVATE KEY-----
-
-
-          # ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
 
           script: |
             cd ~/Conduit-Deployment
