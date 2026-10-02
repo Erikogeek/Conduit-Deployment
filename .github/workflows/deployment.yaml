@@ -68,14 +68,21 @@ jobs:
           fi
 
       - name: Deploy to server
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
 
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deployment_key
+          chmod 600 ~/.ssh/deployment_key
 
-          script: |
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/deployment_key "$SSH_USER@$SSH_HOST" << 'EOF'
             cd ~/Conduit-Deployment
+            git pull origin c-deployment
             docker compose pull
             docker compose up -d
+          EOF
