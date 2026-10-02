@@ -78,6 +78,11 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deployment_key
           chmod 600 ~/.ssh/deployment_key
 
+          echo "Testing SSH private key..."
+          ssh-keygen -y -f ~/.ssh/deployment_key > /dev/null
+
+          echo "SSH private key is valid."
+
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
           ssh -i ~/.ssh/deployment_key "$SSH_USER@$SSH_HOST" << 'EOF'
