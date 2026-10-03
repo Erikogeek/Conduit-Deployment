@@ -69,13 +69,13 @@ jobs:
 
       - name: Deploy to server
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           mkdir -p ~/.ssh
 
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deployment_key
+          printf '%s\n' "$SSH_PRIVATE_KEY_B64" > ~/.ssh/deployment_key
           chmod 600 ~/.ssh/deployment_key
 
           echo "Testing SSH private key..."
