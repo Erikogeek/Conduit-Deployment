@@ -1,5 +1,3 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Deploy Conduit Application
 
 on:
@@ -37,14 +35,14 @@ jobs:
         with:
           context: ./Backend
           push: true
-          tags: ghcr.io/erikogeek/conduit-backend:latest
+          tags: ${{ vars.BACKEND_IMAGE }}:${{ vars.IMAGE_TAG }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
           context: ./Frontend
           push: true
-          tags: ghcr.io/erikogeek/conduit-frontend:latest
+          tags: ${{ vars.FRONTEND_IMAGE }}:${{ vars.IMAGE_TAG }}
 
   deploy:
     runs-on: ubuntu-latest
