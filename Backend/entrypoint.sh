@@ -2,8 +2,8 @@
 
 echo "Waiting for PostgreSQL ... "
 
-# Try to create the connect with PostgreSQL every 2 secondes.Wait until the connection
-# is successfull then execute migrate
+# Try to connect to PostgreSQL every 2 seconds.
+# Wait until the connection is successfull before running migrations
 until python -c "
 import os
 import psycopg2
@@ -17,9 +17,9 @@ try:
         port=os.environ.get('POSTGRES_PORT', '5432')
     )
 except psycopg2.OperationalError:
-    raise systemExit(1)
+    raise SystemExit(1)
 else:
-    raise systemExit(0)
+    raise SystemExit(0)
 "
 do 
     echo "PostgreSQL is not ready yet ... "
