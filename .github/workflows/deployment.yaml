@@ -65,6 +65,7 @@ jobs:
 
           echo "SSH private key is valid."
 
+      ```yaml
       - name: Deploy to server
         env:
           SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
@@ -73,8 +74,13 @@ jobs:
         run: |
           mkdir -p ~/.ssh
 
-          echo "$SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/deployment_key
+          printf '%s' "$SSH_PRIVATE_KEY_B64" | base64 --decode > ~/.ssh/deployment_key
           chmod 600 ~/.ssh/deployment_key
+
+          echo "Testing SSH private key..."
+          ssh-keygen -y -f ~/.ssh/deployment_key > /dev/null
+
+          echo "SSH private key is valid."
 
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
@@ -84,3 +90,4 @@ jobs:
             docker compose pull
             docker compose up -d
           EOF
+```
