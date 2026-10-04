@@ -3,7 +3,7 @@ name: Deploy Conduit Application
 on:
   push:
     branches:
-      - c-deployment
+      - feature/c-deployment
 
 permissions:
   contents: read
@@ -78,7 +78,7 @@ jobs:
 
           ssh -i ~/.ssh/deployment_key "$SSH_USER@$SSH_HOST" << 'EOF'
             cd ~/Conduit-Deployment
-            git pull origin c-deployment
+            git pull origin feature/c-deployment
             docker compose pull
             docker compose up -d
           EOF
