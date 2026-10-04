@@ -84,18 +84,15 @@ The configuration of env.example looks like:
 |DJANGO_SECRET_KEY|secret key used by django|
 |DJANGO_DEBUG|enables or disables django debug mode|
 |DJANGO_ALLOWED_HOSTS|hosts that django accepts|
-|BACKEND_IMAGE|Backend Docker image|
-|FRONTEND_IMAGE|Frontend Docker image|
-|IMAGE_TAG|Docker image tag|
 |FRONTEND_PORT|Host port for the frontend|
 |BACKEND_PORT|Host port for the backend|
 
 Example image configuration:
 | **variables** | **values** |
 | --------- | --------- |
-|BACKEND_IMAGE|ghcr.io/erikogeek/conduit-backend|
-|FRONTEND_IMAGE|ghcr.io/erikogeek/conduit-frontend|
-|IMAGE_TAG|latest|
+|POSTGRES_DB|conduit|
+|DJANGO_SECRET_KEY|-7!x2@q9#Lm4$Pz8&vK1^sN6*Rt3jgafr|
+|BACKEND_PORT|8083|
 
 * Configure the `repository variables`
 
