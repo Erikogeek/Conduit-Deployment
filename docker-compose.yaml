@@ -1,36 +1,29 @@
 services:
   frontend:
-    image: conduit-frontend
-    build:
-      context: ./Frontend
+    image: ${FRONTEND_IMAGE}:${IMAGE_TAG}
     ports:
-      - "8282:80"
+      - "${FRONTEND_PORT}:80"
     depends_on:
       - backend
     restart: unless-stopped
-    
+
   backend:
-    image: conduit-backend
-    build:
-      context: ./Backend
+    image: ${BACKEND_IMAGE}:${IMAGE_TAG}
     env_file:
       - .env
     ports:
-      - "8001:8000"
+      - "${BACKEND_PORT}:8000"
     depends_on:
       - database
     restart: unless-stopped
 
   database:
     image: postgres:15
-
     env_file:
       - .env
-      
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-
 volumes:
-   postgres_data:
+  postgres_data:
