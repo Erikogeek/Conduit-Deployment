@@ -25,7 +25,7 @@ The application uses the following deployment flow:
 
 The developer changes the code, creates commit and pushes it to the repository. GitHub Actions then builds the application images, stores them in GitHub Container Register, and deploys them to a cloud VM through SSH. Docker Compose then starts the frontend, backend, and PostgreSQL services.
 
-![Project architecture](images/conduit-deployment-architektur.png)
+![Project architecture](images/conduit-deploymenet-architektur.png)
 
 The Docker images are built by GitHub Actions. The cloud VM does not build the application images itself. It pulls the already-built images from GitHub Container Registry (GHCR).
 
