@@ -153,7 +153,6 @@ The result these commands ensures if everything is running successfully or more 
  The deployment uses the file named `deployment.yaml` in `.github/workflows/deployment.yaml`. 
  
  The workflow contains two jobs:
- 
 * Build
 
 The `build`job performs the following steps:
