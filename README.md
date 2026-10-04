@@ -187,6 +187,7 @@ The deployment performs the following steps:
 | 5. | Starts the application with Docker Compose |
 
 The deployment commands executed on the cloud VM are:
+
 ```bash
 cd ~/Conduit-Deployment
 ssh -i ~/.ssh/deployment_key "$SSH_USER@$SSH_HOST"
