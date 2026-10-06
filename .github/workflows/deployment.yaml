@@ -29,14 +29,18 @@ jobs:
         with:
           context: ./Backend
           push: true
-          tags: ghcr.io/erikogeek/conduit-backend:latest
+          tags: |
+            ${{ vars.BACKEND_IMAGE }}:${{ vars.IMAGE_TAG }}
+            ${{ vars.BACKEND_IMAGE }}:${{ github.sha }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
           context: ./Frontend
           push: true
-          tags: ghcr.io/erikogeek/conduit-frontend:latest
+          tags: |
+            ${{ vars.FRONTEND_IMAGE }}:${{ vars.IMAGE_TAG }}
+            ${{ vars.FRONTEND_IMAGE }}:${{ github.sha }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -46,7 +50,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare SSH key
+      - name: Prepare SSH private key
         env:
           SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
         run: |
@@ -54,29 +58,28 @@ jobs:
           chmod 600 deployment_key
 
       - name: Copy docker-compose.yaml to server
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          scp -i deployment_key \
-            -o StrictHostKeyChecking=no \
-            docker-compose.yaml \
-            "$SSH_USER@$SSH_HOST:~/Conduit-Deployment/docker-compose.yaml"
-
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        env:
-          DOTENV: ${{ secrets.DOTENV }}
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key_path: deployment_key
-          envs: DOTENV
+          source: "docker-compose.yaml"
+          target: "~/Conduit-Deployment"
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key_path: deployment_key
           script: |
             cd ~/Conduit-Deployment
 
-            printf '%s\n' "$DOTENV" > .env
+            printf '%s\n' '${{ secrets.DOTENV }}' > .env
+
+            echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io \
+              -u '${{ secrets.GHCR_USERNAME }}' \
+              --password-stdin
 
             docker compose pull
             docker compose up -d
-
