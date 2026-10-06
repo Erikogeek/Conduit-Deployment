@@ -41,7 +41,7 @@ The Docker images are built by GitHub Actions. The cloud VM only pulls the alrea
 * Clone the repository and change into the project directory:
 ```bash
 git clone <REPOSITORY_URL>
-`cd Conduit-Deployment`
+cd Conduit-Deployment
 ```
 * Create the environment file
 
@@ -109,6 +109,7 @@ The GitHub Actions workflow uses the following repository variables:
 | BACKEND_IMAGE | ghcr.io/<github_username>/conduit-backend |
 | FRONTEND_IMAGE | ghcr.io/<github_username>/conduit-frontend |
 | IMAGE_TAG | latest |
+
 The workflow uses these variables instead of hardcoding the image names.
 
 For example:
@@ -134,12 +135,11 @@ These values are configured under:
 
 `GitHub --> Repository --> Settings --> Secrets and variables --> Actions --> GitHub Repository Secrets`
 
-
 * Git workflow
 
 After making changes, commit and push them to the deployment branch:
  ```bash
-git add <FILE_NAME>
+git add <FILE_NAME >
 ```
 ```bash
 git commit -m "<commit message>"
@@ -196,7 +196,6 @@ And additional commit-based tag:
 `ghcr.io/<GITHUB_USERNAME>/conduit-backend:<COMMIT_SHA> `
 
 `ghcr.io/<GITHUB_USERNAME>/conduit-frontend:<COMMIT_SHA>`
-
 
 * Deploy job
 
