@@ -54,11 +54,11 @@ jobs:
           push: true
 
           # Create two tags for the backend image
+          # Standard image tag from the GitHub repository variables
+          # Additional unique tag based on the current commit SHA
+          # This allows the image to be linked to a specific commit
           tags: |
-            # Standard image tag from the GitHub repository variable
             ${{ vars.BACKEND_IMAGE }}:${{ vars.IMAGE_TAG }}
-
-            # This additional tag allows the image to be linked to a specific commit
             ${{ vars.BACKEND_IMAGE }}:${{ github.sha }}
 
       # Build and push the frontend Docker image
@@ -72,14 +72,12 @@ jobs:
           push: true
 
           # Create two tags for the frontend image
+          # Standard image tag from the GitHub repository variables
+          # Additional unique tag based on the current commit SHA
+          # This allows the image to be linked to a specific commit
           tags: |
-
-            # Standard image tag from the GitHub repository variable
             ${{ vars.FRONTEND_IMAGE }}:${{ vars.IMAGE_TAG }}
-
-            # This additional unique tag allows the image to be linked to a specific commit
             ${{ vars.FRONTEND_IMAGE }}:${{ github.sha }}
-
 
   # Job responsible for deploying the application to the server
   deploy:
@@ -102,11 +100,10 @@ jobs:
           # Read the private SSH key from GitHub Secrets
           SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
 
+        # Decode the Base64-encoded SSH key and save it as a file
+        # Set secure permissions for the private key
         run: |
-          # Decode the Base64-encoded SSH key and save it as a file
           printf '%s' "$SSH_PRIVATE_KEY_B64" | base64 --decode > deployment_key
-
-          # Set secure permissions for the private key
           chmod 600 deployment_key
 
       # Copy docker-compose.yaml from the GitHub runner to the server
@@ -142,21 +139,18 @@ jobs:
           key_path: deployment_key
 
           # Commands to execute on the remote server
+          # Change to the deployment directory
+          # Create the .env file on the server using the <DOTENV> stored in Github.
+          # Log in to GitHub Container Registry,so the server can pull the private Docker images
+          # Pull the Docker images defined in docker-compose.yaml and start the containers.
           script: |
-
-            # Change to the deployment directory
             cd ~/Conduit-Deployment
-
-            # Create the .env file on the server using the <DOTENV> stored in Github.
             printf '%s\n' '${{ secrets.DOTENV }}' > .env
 
-            # Log in to GitHub Container Registry,so the server can pull the private Docker images
             echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io \
               -u '${{ secrets.GHCR_USERNAME }}' \
               --password-stdin
 
-            # Pull the Docker images defined in docker-compose.yaml
             docker compose pull
 
-            # Start or update the containers in detached mode
             docker compose up -d
