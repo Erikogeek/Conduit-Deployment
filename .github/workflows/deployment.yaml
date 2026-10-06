@@ -43,22 +43,40 @@ jobs:
     needs: build
 
     steps:
-      - name: Deploy to server
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH key
         env:
           SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
+        run: |
+          printf '%s' "$SSH_PRIVATE_KEY_B64" | base64 --decode > deployment_key
+          chmod 600 deployment_key
+
+      - name: Copy docker-compose.yaml to server
+        env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          mkdir -p ~/.ssh
+          scp -i deployment_key \
+            -o StrictHostKeyChecking=no \
+            docker-compose.yaml \
+            "$SSH_USER@$SSH_HOST:~/Conduit-Deployment/docker-compose.yaml"
 
-          printf '%s' "$SSH_PRIVATE_KEY_B64" | base64 --decode > ~/.ssh/deployment_key
-          chmod 600 ~/.ssh/deployment_key
-
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
-
-          ssh -i ~/.ssh/deployment_key "$SSH_USER@$SSH_HOST" << 'EOF'
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        env:
+          DOTENV: ${{ secrets.DOTENV }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key_path: deployment_key
+          envs: DOTENV
+          script: |
             cd ~/Conduit-Deployment
-            git pull origin feature/c-deployment
+
+            printf '%s\n' "$DOTENV" > .env
+
             docker compose pull
             docker compose up -d
-          EOF
+
