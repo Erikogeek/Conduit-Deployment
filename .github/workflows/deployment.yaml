@@ -143,7 +143,11 @@ jobs:
           # Create the .env file on the server using the <DOTENV> stored in Github.
           # Log in to GitHub Container Registry,so the server can pull the private Docker images
           # Pull the Docker images defined in docker-compose.yaml and start the containers.
+          # docker compose up -d --remove-orphans: Start or update containers 
+          # and remove old compose containers that are no longer needed.
+          # Set -e : Detect and catch errors during the execution.
           script: |
+            set -e
             cd ~/Conduit-Deployment
             printf '%s\n' '${{ secrets.DOTENV }}' > .env
 
@@ -153,4 +157,4 @@ jobs:
 
             docker compose pull
 
-            docker compose up -d
+            docker compose up -d --remove-orphans
