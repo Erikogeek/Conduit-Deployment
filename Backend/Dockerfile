@@ -1,16 +1,33 @@
-# Build an image with python 3.5.2 (Basic image)
+# Stage 1: Install Python dependencies
+FROM python:3.5-slim AS dependencies
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the requirements file into the container
+COPY requirements.txt .
+
+# Install dependencies into a separate directory without the pip cache
+RUN pip install --no-cache-dir --prefix=/INSTALL -r requirements.txt
+
+
+# Stage 2: Runtime image
 FROM python:3.5-slim
 
-# Set the working directory in Container to 'app'.
-WORKDIR /app  
+# Set the working directory inside the container
+WORKDIR /app
 
-# copy the relevant files and assets from the Host during the build process
+# Copy the installed dependencies from the first stage
+COPY --from=dependencies /INSTALL /usr/local
+
+# Copy the Django application into the runtime image
 COPY . .
 
-# Install all dependencies for the application that lives in the container.
-RUN python -m pip install -r requirements.txt && chmod +x entrypoint.sh
+# Make the entrypoint script executable
+RUN chmod +x entrypoint.sh
 
-# Django/WSGI is reachable via Port 8000 in container.
+# Gunicorn listens on port 8000 inside the container
 EXPOSE 8000
 
-ENTRYPOINT [ "./entrypoint.sh" ]
+# Start the application
+ENTRYPOINT ["./entrypoint.sh"]

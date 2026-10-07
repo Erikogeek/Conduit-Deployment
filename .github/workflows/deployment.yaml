@@ -1,0 +1,160 @@
+# Name of the GitHub Actions workflow
+name: Deploy Conduit Application
+
+# Start the workflow whenever code is pushed to the feature/c-deployment branch
+on:
+  push:
+    branches:
+      - feature/c-deployment
+
+# Permissions required by the workflow
+permissions:
+  # Allow the workflow to read the repository contents
+  contents: read
+
+  # Allow the workflow to push Docker images to GitHub Container Registry
+  packages: write
+
+# Definition of the workflow jobs
+jobs:
+
+  # Job responsible for building and pushing the Docker images
+  build:
+    # Run the job on a GitHub-hosted Ubuntu runner
+    runs-on: ubuntu-latest
+
+    # Steps executed during the build job
+    steps:
+
+      # Check out the repository on the GitHub runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Log in to GitHub Container Registry (GHCR)
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          # GitHub Container Registry address
+          registry: ghcr.io
+
+          # GitHub user who triggered the workflow
+          username: ${{ github.actor }}
+
+          # GitHub automatically generated token for accessing GHCR
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build and push the backend Docker image
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          # Directory containing the backend Dockerfile
+          context: ./Backend
+
+          # Push the built image to GHCR
+          push: true
+
+          # Create two tags for the backend image
+          # Standard image tag from the GitHub repository variables
+          # Additional unique tag based on the current commit SHA
+          # This allows the image to be linked to a specific commit
+          tags: |
+            ${{ vars.BACKEND_IMAGE }}:${{ vars.IMAGE_TAG }}
+            ${{ vars.BACKEND_IMAGE }}:${{ github.sha }}
+
+      # Build and push the frontend Docker image
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          # Directory containing the frontend Dockerfile
+          context: ./Frontend
+
+          # Push the built image to GHCR
+          push: true
+
+          # Create two tags for the frontend image
+          # Standard image tag from the GitHub repository variables
+          # Additional unique tag based on the current commit SHA
+          # This allows the image to be linked to a specific commit
+          tags: |
+            ${{ vars.FRONTEND_IMAGE }}:${{ vars.IMAGE_TAG }}
+            ${{ vars.FRONTEND_IMAGE }}:${{ github.sha }}
+
+  # Job responsible for deploying the application to the server
+  deploy:
+    # Run the job on a GitHub-hosted Ubuntu runner
+    runs-on: ubuntu-latest
+
+    # Start this job only after the build job has completed successfully
+    needs: build
+
+    # Steps executed during the deployment job
+    steps:
+
+      # Check out the repository on the GitHub runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Prepare the Base64-encoded private SSH key
+      - name: Prepare SSH private key
+        env:
+          # Read the private SSH key from GitHub Secrets
+          SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
+
+        # Decode the Base64-encoded SSH key and save it as a file
+        # Set secure permissions for the private key
+        run: |
+          printf '%s' "$SSH_PRIVATE_KEY_B64" | base64 --decode > deployment_key
+          chmod 600 deployment_key
+
+      # Copy docker-compose.yaml from the GitHub runner to the server
+      - name: Copy docker-compose.yaml to server
+        uses: appleboy/scp-action@v1
+        with:
+          # Server address stored in GitHub Secrets
+          host: ${{ secrets.SSH_HOST }}
+
+          # SSH username stored in GitHub Secrets
+          username: ${{ secrets.SSH_USER }}
+
+          # Use the private SSH key for authentication
+          key_path: deployment_key
+
+          # File to copy to the server
+          source: "docker-compose.yaml"
+
+          # Target directory on the server
+          target: "~/Conduit-Deployment"
+
+      # Deploy the application on the server
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          # Server address stored in GitHub Secrets
+          host: ${{ secrets.SSH_HOST }}
+
+          # SSH username stored in GitHub Secrets
+          username: ${{ secrets.SSH_USER }}
+
+          # Use the private SSH key for authentication
+          key_path: deployment_key
+
+          # Commands to execute on the remote server
+          # Change to the deployment directory
+          # Create the .env file on the server using the <DOTENV> stored in Github.
+          # Log in to GitHub Container Registry,so the server can pull the private Docker images
+          # Pull the Docker images defined in docker-compose.yaml and start the containers.
+          # docker compose up -d --remove-orphans: Start or update containers 
+          # and remove old compose containers that are no longer needed.
+          # Set -e : Detect and catch errors during the execution.
+          script: |
+            set -e
+            cd ~/Conduit-Deployment
+            printf '%s\n' '${{ secrets.DOTENV }}' > .env
+
+            echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io \
+              -u '${{ secrets.GHCR_USERNAME }}' \
+              --password-stdin
+
+            docker compose pull
+
+            docker compose up -d --remove-orphans

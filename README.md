@@ -1,29 +1,48 @@
-# Conduit-Container
-This project containerizes a full-stack web application consisting of a `Django backend`, an `Angular frontend client` and a `PostgreSQL database`. The Nginx web server serves the Angular application and forwards API requests to the backend. The setup uses Docker Compose to manage all containers.
+# Conduit-Deployment
+This project focuses on deploying a full-stack web application consisting of a `Django backend` and an `Angular frontend` using a `GitHub Actions workflow`.
 
-The goal of this project is to provide a reproducible containerized development and deployment environment.
+This is an extension of the previous `Conduit-Container`project.
 
+The deployment process is automated through a CI/CD pipeline. GitHub Actions builds the `backend and frontend Docker images` and pushes them to the GitHub Container Registry (GHCR). The images are then deployed to a target cloud VM via SSH and started using Docker Compose. 
+
+The cloud VM does not build the application images and does not require the Git repository or application source code. It only needs the `docker-compose.yaml` file and the `.env configuration` file.
+
+The project demonstrates an automated and reproducible deployment process for a containerized full-stack application.
 ## Table of contents
 - [1. Prerequisites](#Prerequisites)
-- [2. Quickstart](#2-Quickstart)
-- [3. Usage](#Usage)
-- [4. Troubleshooting](#Troubleshooting)
+- [2. project architecture](#project-architecture)
+- [3. Quickstart](#2-Quickstart)
+- [4. Usage](#Usage)
+- [5. Deployment](#Deployment)
 
 ## 1. Prerequisites
-To successfull set up this project the knowledge in following technologies and software is required:
-* Docker and dockerfile for building containers.
-* Docker compose for managing the containers.
-* Angular for the frontend
-* Django REST framework for the backend API.
-* PostgreSQL as the database
+To successfully set up and deploy this project, knowledge of the following technologies and software is recommended:
+* Docker and Docker compose for building and managing the containers.
+* Github and Github actions.
+* A cloud VM 
+* SSH access to the cloud VM.
 
-## 2. Quickstart
-* Clone the repository:
+For local development and testing, `Docker Desktop` is recommanded.
+## 2. Project architecture
+The application uses the following CI/CD deployment flow:
+
+The developer changes the code, creates commits and pushes the changes to the repository. GitHub Actions is triggered automatically and then builds the angular frontend and django backend images. The both images are pushed to the GitHub Container Register (GHCR). The Github actions connects to the cloud VM via SSH. The `docker-compose.yaml` file is copied to the cloud VM and the `.env` file is created automatically from the Github `DOTENV`secrets. The cloud VM logs in to GHCR and pulls the latest application images using Docker Compose,that starts or updates the application containers.
+
+>[!**Note**]:
+> The cloud VM does not contain the application source code and does not use Git. The server only contains the required files (.env and docker-compose.yaml) to run the application:
+
+![Project architecture](images/conduit-deploymenet-architektur.png)
+
+The Docker images are built by GitHub Actions. The cloud VM only pulls the already-built images from GitHub Container Registry (GHCR).
+
+
+## 3. Quickstart
+
+* Clone the repository and change into the project directory:
 ```bash
 git clone <REPOSITORY_URL>
+cd Conduit-Deployment
 ```
-Change the working directory: `cd Conduit-Container`
-
 * Create the environment file
 
 Create `.env` based on `.env.example`and set the required variable values.
@@ -31,211 +50,183 @@ Create `.env` based on `.env.example`and set the required variable values.
 ```bash
 Copy-Item .env.example .env
 ```
-* Building the containers:
+The `.env` file contains configuration for the Docker images, ports, Django application, and PostgreSQL database.
 
-This builds the specific frontend and backend images from the project`s own dockerfiles.
+* Building the containers:
 ```bash
-cd /Conduit-Container/Frontend
-docker build --tag conduit-frontend .
+cd /Conduit-Deployment/Frontend
+docker buildx build --tag ghcr.io/<GITHUB_USERNAME>/conduit-frontend:latest .
 ```
 ```bash
-cd /Conduit-Container/Backend
+cd /Conduit-Deployment/Backend
+docker buildx build --tag ghcr.io/<GITHUB_USERNAME>/conduit-frontend:latest .
+```
+* Start manually and check the application:
+```bash
+docker compose up -d
+docker compose ps
+```
+* CI/CD deployment
+
+After changes are pushed in the `c-deployment`branch, the GitHub Actions workflow starts automatically.
+
+Open the application in your browser:
+| **local deployment** | **CI/CD deployment** |
+| ---------------- | ---------------- |
+| `http://localhost:8282` | `http://SERVER_IP:8282` |
+ 
+
+## 4. Usage
+After cloning the repository and create the `env.example` 
+* Configure the `.env.example` file.
+
+The configuration of env.example looks like:
+| **variables** | **values** |
+| --------- | --------- |
+|POSTGRES_DB|Name of the postgreSQL database|
+|POSTGRES_USER|postgreSQL database user|
+|POSTGRES_PASSWORD|postgreSQLdatabase password|
+|POSTGRES_PORT|postgreSQL port|
+|DJANGO_SECRET_KEY|secret key used by django|
+|DJANGO_DEBUG|enables or disables django debug mode|
+|DJANGO_ALLOWED_HOSTS|hosts that django accepts|
+|FRONTEND_PORT|Host port for the frontend|
+|BACKEND_PORT|Host port for the backend|
+
+Example image configuration:
+| **variables** | **values** |
+| --------- | --------- |
+|POSTGRES_DB|conduit|
+|DJANGO_SECRET_KEY|-7!x2@q9#Lm4$Pz8&vK1^sN6*Rt3jgafr|
+|BACKEND_PORT|8083|
+
+* Configure the `repository variables`
+
+The GitHub Actions workflow uses the following repository variables:
+
+| **variables** | **values** |
+| --------- | --------- |
+| BACKEND_IMAGE | ghcr.io/<github_username>/conduit-backend |
+| FRONTEND_IMAGE | ghcr.io/<github_username>/conduit-frontend |
+| IMAGE_TAG | latest |
+
+The workflow uses these variables instead of hardcoding the image names.
+
+For example:
+
+`${{ vars.BACKEND_IMAGE }}:${{ vars.IMAGE_TAG }}`
+
+The workflow also creates an additional image tag using the Git commit SHA:
+
+`${{ vars.BACKEND_IMAGE }}:${{ github.sha }}`
+
+This makes each built image identifiable by the commit that created it.
+
+|**repository secrets**|**meaning**|
+| --------- | --------- |
+| SSH_PRIVATE_KEY_B64| private deployment-key |
+| SSH_HOST | Server-Adresse |
+| SSH_USER | Server-username |
+| DOTENV | Complete environment configuration written to .env on the server |
+| GHCR_USERNAME | GitHub username used for GHCR authentication|
+| GHCR_TOKEN |GitHub token used by the server to pull private images from GHCR |
+
+These values are configured under:
+
+`GitHub --> Repository --> Settings --> Secrets and variables --> Actions --> GitHub Repository Secrets`
+
+* Git workflow
+
+After making changes, commit and push them to the deployment branch:
+ ```bash
+git add <FILE_NAME >
+```
+```bash
+git commit -m "<commit message>"
+```
+```bash
+git push origin feature/c-deployment
+```
+A push to `c-deployment` automatically triggers the GitHub Actions workflow.
+* Local docker image build
+
+The Dockerfiles can also be tested locally.
+```bash
+docker buildx build --tag <FRONTEND_IMAGE>:<IMAGE_TAG > .
+docker buildx build --tag ghcr.io/erikogeek/conduit-backend:latest .
+docker build --tag conduit-frontend .
 docker build --tag conduit-backend .
 ```
-* Start the specific containers.
-```bash
-docker run --rm -p 8282:80 conduit-frontend
-docker run --rm -p 8001:8000 conduit-backend
-```
-* Build the images using Docker-compose
-```bash
-docker compose build
-```
-* Start and stop the application:
-```bash
-docker compose up -d
-docker compose down
-```
-* Check the containers:
-```bash
-docker compose ps
-```
-* Run django migrations:
-```bash
-docker compose exec backend python manage.py migrate
-```
-* View the container logs:
-```bash
-docker compose logs backend
-```
-* Open the application in your browser:
- `http://SERVER_IP:8282`
-
-## 3. Usage
-
-This section describes how the application can be configured,started, modified and operated. 
-The frontend is available on `port 8282` of the host system. Nginx serves the angular application and forwards API requests to the backend container.
-The django backend runs with the gunicorn on `port 8000`.
-
-The ProgreSQL uses `port 5432` internally inside the docker network. It does not need to be exposed to the host because only the backend communicates directly with the database.
-
-### Environment configuration
-
-Sensitive and environment-specific values are stored in `.env`. The repository contains  `.env.example` as a template.
-The following variables are used:
-
-| `variables` | `values` |
+The `.` at the end specifies the current directory as the Docker build context.
+`Buildx` is used because the github actions workflow uses `Docker Buildx`.
+| **elements** | **meaning** |
 | -------- | ------ |
-| POSTGRES_DB | Name of the postgreSQL database |
-| POSTGRES_USER | database user |
-| POSTGRES_PASSWORD | database password |
-| POSTGRES_PORT | postgreSQL port |
-| DJANGO_SECRET_KEY| secret key used by django|
-| DJANGO_DEBUG | enables or disables django debug mode |
-| DJANGO_ALLOWED_HOSTS| hosts that django accepts|
+| ghcr.io | github container registry |
+| <GITHUB_USERNAME> | github username of organization |
+| conduit-frontend | docker image name |
+| latest | docker image tag |
+| `.`| the docker build context |
 
-### Backend Dockerfile
+## 5. Deployment
 
-This file uses a `python 3.5` as base image, sets `/app` as working directory, copies and installs the project dependencies listed in `requirements.txt`. Copies the backend code, exposes `PORT: 8000` and starts `Gunicorn 20.1.0` with the django WSGI application.
+ The deployment workflow uses the file named `deployment.yaml` located at `.github/workflows/deployment.yaml`. 
+ 
+ The workflow contains two jobs:
+* Build
 
-### Backend entrypoint.sh
+The `build`job performs the following steps:
 
-The backend container uses an `entrypoint.sh`script to prepare and start the django application.
+| **step** | **activity** |
+| -------- | ------------ |
+| 1. | check out the repository |
+| 2. | Logs in to GitHub Container Registry|
+| 3. | Builds the Django backend Docker image|
+| 4. | Pushes the backend image to GHCR|
+| 5. | Builds the Angular frontend Docker image.|
+| 6. | Pushes the frontend image to GHCR. |
 
-The script performs the following steps when the container starts:
-- Run the database migrations
-- Check and create the superuser
-- Start the django application with `gunicorn`
+The images receive two tags:
 
-### Frontend Dockerfile
+`ghcr.io/<GITHUB_USERNAME>/conduit-frontend:latest`
 
-The frontend uses a multi-stage docker build.
-- In the first stage `Node.js 20` is used to install dependencies defined by `package-lock.json` and build the angular application.
+`ghcr.io/<GITHUB_USERNAME>/conduit-backend:latest`
+
+And additional commit-based tag:
+
+`ghcr.io/<GITHUB_USERNAME>/conduit-backend:<COMMIT_SHA> `
+
+`ghcr.io/<GITHUB_USERNAME>/conduit-frontend:<COMMIT_SHA>`
+
+* Deploy job
+
+The `deploy` job starts only after the `build` job has completed successfully. This is defined by:
+
+`needs: build`
+
+The deployment performs the following steps:
+
+| ` step` | ` activity` |
+| -------- | ------ |
+| 1. | Creates the SSH key from the configured GitHub secret |
+| 2. | Decodes the Base64-encoded SSH private key |
+| 3. | Copies docker-compose.yaml to the cloud VM |
+| 4. | Creates the `.env file` from the `GitHub DOTENV secret` |
+| 5. | Logs in to GHCR on the cloud VM |
+| 6. | Pulls the Docker images from GHCR |
+| 7. | Starts the application with Docker Compose |
+
+The deployment commands executed on the cloud VM are:
+
 ```bash
-npm ci 
-npm run build
-```
-- In the second stage, the compiled angular application is copied into the nginx alpine image. This multi-stage approach keeps the final image of frontend smaller because `Node.js` and the build dependencies are not required to serve the compiled application.
-
-### Nginx configuration
-
-Nginx performs two main taks:
-- The ``serve angular application``:
-The requests for the frontend are served from `/usr/share/nginx/html`.
-- The `Forward API requests`: Beginning with `/api/`are forwarded to the backend.
-
-```nginx.conf
-location /api/ { 
-proxy_pass http://backend:8000; 
-proxy_http_version 1.1; 
-proxy_set_header Host $host; 
-proxy_set_header X-Real-IP $remote_addr; 
-proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; 
-proxy_set_header X-Forwarded-Proto $scheme; 
-            }
-```
-Nginx receives these requests and forwards to django.
-
-The API interceptor is found under: `/Frontend/src/app/core/interceptors/`.
-
-The frontend and backend images are built from the project`s own dockerfiles. The PostgreSQL uses the official postgreSQL image.
-
-### Database persistence
-
-PostgreSQL uses a named Docker volume:
-```bash
-volumes: 
-    - postgres_data:/var/lib/postgresql/data
-```
-This ensures that database data is stored outside the temporary database container.
-The data therefore remains available when the containers are removed and recreated, as long as the named volume is not deleted.
-
-### rebuilding after modifications
-
-After making modifications, the affected image needs to be rebuilt.
-
-* For the frontend:
-```bash
-docker compose build frontend
-docker compose up -d frontend
-```
-* For backend 
-```bash
-docker compose build backend
-docker compose up -d backend
-```
-* Rebuild everthing at the same time
-```bash
-docker compose up -d --build
-```
-* Start and stop all containers:
-```bash
+cd ~/Conduit-Deployment
+docker login ghcr.io
+docker compose pull
 docker compose up -d
-docker compose down
 ```
-The comand ` docker compose down` stops and removes the containers but keeps the named PostgreSQL volume.
+The `.env file` is automatically created by the GitHub Actions workflow. The deployment does not use `git pull` on the cloud VM. 
 
-* To start or stop the specific service:
-```bash
-docker compose up -d <service name>
-docker compose  stop <service name>
-```
-For example:   `docker compose stop frontend`
+The cloud VM does not need the `Git repository`, `the backend source code`, or the `frontend source code`.
 
-* Remove the containers and Database data:
-```bash
-docker compose down -v
-```
->**Warning**: Removing the volume deletes the stored progresSQL data
+After deployment, the frontend is available on `port 8282` of the host system. Use: `http://<VM-IP>:8282`
 
-After the containers are running the application can be accessed in the browser at:
-`htpp://<SERVER_IP>:8282`
-
-## 4. Troubleshooting
-* Frontend is not available.
-
-Check the container status and logs:
-```bash
-docker compose ps
-docker compose logs frontend
-```
-Make sure port 8282 is not already used by another application.
-* Backend is not available.
-
-Check the backend status and logs:
-```bash
-docker compose ps
-docker compose logs backend
-```
-Verify that Gunicorn is running. The logs should be contain messages similar to:
-
-`Starting gunicorn`
-`Listening at: http://0.0.0.0:8000`
-
-* Database connection errors
-
-Check the status and logs of database:
-```bash
-docker compose ps
-docker compose logs database
-```
-Verify that the `.env` values match between PostgreSQL and Django.
-The backend should use:
-
-``POSTGRES_HOST=database``
-``POSTGRES_PORT=5432``
-
-* Database tables are missing.
-Run:
-```bash
-docker compose exec backend python manage.py migrate
-```
-Then reload the application.
-
-* Changes are not visible
-
-Rebuild the affected service:
-```bash
-docker compose up -d --build
-```
-Then reload the application on the browser.
+The resulting setup provides and automated, reproducible and containerized CI/CD deployment process for the Conduit full-stack application.
